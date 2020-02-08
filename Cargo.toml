@@ -9,3 +9,7 @@ edition = "2018"
 [dependencies]
 rust_gpiozero = "0.2.0"
 gphoto = "0.1.2"
+blurz = "0.4.0"
+
+[profile.release]
+codegen-units = 1
