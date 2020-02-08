@@ -1,0 +1,28 @@
+{
+    "_meta": {
+        "hash": {
+            "sha256": "91c1a338308abace5865fbcf8bb93ae3bf104c84b4b85081a9c1707face1fc82"
+        },
+        "pipfile-spec": 6,
+        "requires": {
+            "python_version": "3.7"
+        },
+        "sources": [
+            {
+                "name": "pypi",
+                "url": "https://pypi.org/simple",
+                "verify_ssl": true
+            }
+        ]
+    },
+    "default": {
+        "gphoto2": {
+            "hashes": [
+                "sha256:647a574f8b840eefbe4dff1d6f8e699dc5f2d58fd20163dd7b862d3abca7b5b9"
+            ],
+            "index": "pypi",
+            "version": "==2.1.0"
+        }
+    },
+    "develop": {}
+}
