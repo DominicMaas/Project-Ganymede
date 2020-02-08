@@ -1,6 +1,7 @@
 extern crate blurz;
 extern crate gphoto;
 
+use std::process::Command;
 use std::{thread, time};
 
 /// A function which loops forever until a camera is found
@@ -25,27 +26,22 @@ fn detect_camera() -> gphoto::Camera {
     }
 }
 
+/// Main entry
 fn main() {
     println!("Starting Program...");
 
     // Attempt to get the camera
-    let camera = detect_camera();
-    let abilities = camera.abilities();
+    detect_camera();
 
-    println!("\n[abilities]");
-    println!("      device type = {:?}", abilities.device_type());
-    println!("            model = {:?}", abilities.model());
-    println!("    driver status = {:?}", abilities.driver_status());
-    println!("       port types = {:?}", abilities.port_types());
-    println!("           speeds = {:?}", abilities.speeds());
-    println!("camera operations = {:?}", abilities.camera_operations());
-    println!("  file operations = {:?}", abilities.file_operations());
-    println!("folder operations = {:?}", abilities.folder_operations());
-    println!("       USB vendor = {:?}", abilities.usb_vendor());
-    println!("      USB product = {:?}", abilities.usb_product());
-    println!("        USB class = {:?}", abilities.usb_class());
-    println!("     USB subclass = {:?}", abilities.usb_subclass());
-    println!("     USB protocol = {:?}", abilities.usb_protocol());
+    // We don't need to use the camera, just use the
+    // library to ensure a camera is connected, use the commands
+    // for the rest. TODO: Also use library, library does not support
+    // commands.
+
+    set_iso(3);
+
+    let iso = get_iso();
+    println!("current iso: {}", iso.current);
 
     // Create a session
     // let session = Session::create_session(Option::None).unwrap();
@@ -54,4 +50,39 @@ fn main() {
     // Temp
     // let device = adapter.get_first_device().unwrap();
     // println!("{:?}", device);
+}
+
+struct ISO {
+    current: String,
+}
+
+fn set_iso(number: i16) {
+    let cmd = Command::new("gphoto2")
+        .arg("--set-config")
+        .arg(format!("iso={}", number))
+        .output()
+        .expect("Command did not run");
+
+    println!("status: {}", cmd.status);
+    println!("stdout: {}", String::from_utf8_lossy(&cmd.stdout));
+    println!("stderr: {}", String::from_utf8_lossy(&cmd.stderr));
+}
+
+// TODO
+
+fn get_iso() -> ISO {
+    let cmd = Command::new("gphoto2")
+        .arg("--get-config")
+        .arg("iso")
+        .output()
+        .expect("Command did not run");
+    let result = String::from_utf8_lossy(&cmd.stdout);
+
+    println!("status: {}", cmd.status);
+    println!("stdout: {}", String::from_utf8_lossy(&cmd.stdout));
+    println!("stderr: {}", String::from_utf8_lossy(&cmd.stderr));
+
+    return ISO {
+        current: String::from(result),
+    };
 }
