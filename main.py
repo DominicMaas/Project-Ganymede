@@ -1,9 +1,10 @@
 # Application to run on raspberry pi, the following are requried to be installed:
 # libgphoto2-dev
 
-# Phython Setup
+# Setup
 # 1. sudo apt-get install python3-pip
-# 2. sudo pip3 install pipenv
+# 2. sudo apt-get install libgphoto2-dev
+# 3. sudo pip3 install gphoto2
 
 import gphoto2 as gp
 import time
@@ -29,10 +30,15 @@ def detect_camera():
             time.sleep(10)
 
 
+# ENTER PROGRAM
+
 # Try get the camera
 camera = detect_camera()
-text = camera.get_summary()
-print('Summary')
-print('=======')
-print(str(text))
-camera.exit()
+
+# Setup bluetooth (used to communiate with the phone)
+# nearby_devices = bluetooth.discover_devices()
+# for bdaddr in nearby_devices:
+#    print(str(bluetooth.lookup_name(bdaddr)) + " [" + str(bdaddr) + "]")
+
+
+# camera.exit()
