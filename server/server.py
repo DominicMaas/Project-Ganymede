@@ -30,8 +30,15 @@ def make_response(isError, response=''):  # Wrapper around generating responses
     )
 
 
+
 # ENTER PROGRAM
 app = Flask(__name__)
+
+@blueprint.after_request
+def after_request(response): # Handle CORS
+    headers = response.headers
+    headers['Access-Control-Origin'] = '*'
+    return response
 
 
 @app.route('/capture-preview')
