@@ -35,6 +35,18 @@ function NightPage() {
   const [delay, setDelay] = React.useState("1");
   const [takes, setTakes] = React.useState("10");
 
+  // Functions
+  const takeTestPhoto = () => {
+    fetch("http://raspberrypi:8080/capture-preview")
+      .then((res) => {
+        console.log(res);
+      })
+      .catch((reason) => {
+        alert(reason);
+      });
+  };
+
+  // The UI
   return (
     <>
       <AppBar position="static">
@@ -113,7 +125,9 @@ function NightPage() {
         </FormControl>
 
         <FormControl className={classes.formControl}>
-          <Button variant="outlined">Take test photo</Button>
+          <Button variant="outlined" onClick={takeTestPhoto}>
+            Take test photo
+          </Button>
         </FormControl>
       </Container>
     </>
