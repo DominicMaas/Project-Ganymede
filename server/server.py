@@ -13,6 +13,25 @@ CAMERA = None
 
 app = Flask(__name__)
 
+def ensure_camera():
+    global CAMERA
+
+    # The camera already exists
+    if CAMERA != None:
+        return
+
+    # Setup the context
+    context = gp.Context()
+
+    try:
+        # Attempt to get the camera
+        CAMERA = gp.Camera()
+        CAMERA.init(context)
+        print("Camera connected!")
+    except:
+        CAMERA = None
+        print('The camera is not connected')
+
 
 @app.after_request
 def after_request(response):  # Handle CORS
@@ -23,7 +42,10 @@ def after_request(response):  # Handle CORS
 
 @app.route('/set-config-item/<name>', methods=['POST'])
 def set_config_item(name):
-    # It's not connected
+    global CAMERA
+
+    # Handle getting the camera
+    ensure_camera()
     if CAMERA == None:
         return 'The camera is not connected', 500
 
@@ -35,6 +57,8 @@ def set_config_item(name):
     # Get the widget
     OK, widget = gp.gp_widget_get_child_by_name(config, name)
     if OK != gp.GP_OK:
+        CAMERA = None
+        ensure_camera() # This will also not be okay if the camera disconnects
         return 'There are no widgets with the name of ' + name, 500
 
     OK = gp.gp_widget_set_value(widget, value)
@@ -50,7 +74,10 @@ def set_config_item(name):
 
 @app.route('/get-config-item/<name>')
 def get_config_item(name):
-    # It's not connected
+    global CAMERA
+
+    # Handle getting the camera
+    ensure_camera()
     if CAMERA == None:
         return 'The camera is not connected', 500
 
@@ -60,6 +87,8 @@ def get_config_item(name):
     # Get the widget
     OK, widget = gp.gp_widget_get_child_by_name(config, name)
     if OK != gp.GP_OK:
+        CAMERA = None
+        ensure_camera() # This will also not be okay if the camera disconnects
         return 'There are no widgets with the name of ' + name, 500
 
     choices = []
@@ -85,46 +114,126 @@ def get_config_item(name):
 
 @app.route('/capture-preview')
 def app_capture_preview():
-    # It's not connected
+    global CAMERA
+
+    # Handle getting the camera
+    ensure_camera()
     if CAMERA == None:
         return 'The camera is not connected', 500
 
-    # Determine the image format
-    config = gp.check_result(gp.gp_camera_get_config(CAMERA))
-    OK, image_format = gp.gp_widget_get_child_by_name(config, 'imagequality')
-    if OK >= gp.GP_OK:
-        value = gp.check_result(gp.gp_widget_get_value(image_format))
-        print('The value is ', value)
+    # Get the config
+    config = CAMERA.get_config()
 
-    # Capture a preview image and grab the file data
-    camera_file = CAMERA.capture_preview()
+    # Get the widgets
+    OK, capturetarget_widget = gp.gp_widget_get_child_by_name(config, 'capturetarget')
+    if OK != gp.GP_OK:
+        CAMERA = None
+        ensure_camera() # This will also not be okay if the camera disconnects
+        return 'There are no widgets with the name of capturetarget or the camera is disconnected', 500
+
+    OK, viewfinder_widget = gp.gp_widget_get_child_by_name(config, 'viewfinder')
+    if OK != gp.GP_OK:
+        CAMERA = None
+        ensure_camera() # This will also not be okay if the camera disconnects
+        return 'There are no widgets with the name of viewfinder or the camera is disconnected', 500
+
+    OK, imagequality_widget = gp.gp_widget_get_child_by_name(config, 'imagequality')
+    if OK != gp.GP_OK:
+        CAMERA = None
+        ensure_camera() # This will also not be okay if the camera disconnects
+        return 'There are no widgets with the name of imagequality or the camera is disconnected', 500
+
+    # Set the capture target to 'Internal RAM'
+    OK = gp.gp_widget_set_value(capturetarget_widget, 'Internal RAM')
+    if OK != gp.GP_OK:
+        return 'Could not set the capture target to Internal RAM', 500
+
+    # Set the view finder to
+    OK = gp.gp_widget_set_value(viewfinder_widget, 0)
+    if OK != gp.GP_OK:
+        return 'Could not set the view finder to 0', 500
+
+    # Set the image format to 'JPEG Normal'
+    OK = gp.gp_widget_set_value(imagequality_widget, 'JPEG Normal')
+    if OK != gp.GP_OK:
+        return 'Could not set the image quality to JPEG Normal', 500
+
+    OK = gp.gp_camera_set_config(CAMERA, config)
+    if OK != gp.GP_OK:
+        return 'Could not update the camera configuration', 500
+
+    # Capture the image (to memory)
+    path = CAMERA.capture(gp.GP_CAPTURE_IMAGE)
+    print('capture', path.folder + path.name)
+    camera_file = CAMERA.file_get(path.folder, path.name, gp.GP_FILE_TYPE_NORMAL)
     file_data = gp.check_result(gp.gp_file_get_data_and_size(camera_file))
 
-    # Process the data
+    # Process the image data
     data = memoryview(file_data)
     print(type(data), len(data))
 
-    return Response(data.tobytes(), mimetype='image/x-nikon-nef')
+    # Return the image data
+    return Response(data.tobytes(), mimetype='image/jpeg')
 
 
-def get_camera():  # Function that attempts to get the camera
-    # Setup the context
-    context = gp.Context()
+@app.route('/capture-image', methods=['POST'])
+def app_capture_image():
+    global CAMERA
 
-    try:
-        # Attempt to get the camera
-        camera = gp.Camera()
-        camera.init(context)
+    # Handle getting the camera
+    ensure_camera()
+    if CAMERA == None:
+        return 'The camera is not connected', 500
 
-        # Return the camera
-        print("Camera connected!")
-        return camera
-    except:
-        print('The camera is not connected')
-        return None
+    # Get the config
+    config = CAMERA.get_config()
+
+    # Get the widgets
+    OK, capturetarget_widget = gp.gp_widget_get_child_by_name(config, 'capturetarget')
+    if OK != gp.GP_OK:
+        CAMERA = None
+        ensure_camera() # This will also not be okay if the camera disconnects
+        return 'There are no widgets with the name of capturetarget or the camera is disconnected', 500
+
+    OK, viewfinder_widget = gp.gp_widget_get_child_by_name(config, 'viewfinder')
+    if OK != gp.GP_OK:
+        CAMERA = None
+        ensure_camera() # This will also not be okay if the camera disconnects
+        return 'There are no widgets with the name of viewfinder or the camera is disconnected', 500
+
+    OK, imagequality_widget = gp.gp_widget_get_child_by_name(config, 'imagequality')
+    if OK != gp.GP_OK:
+        CAMERA = None
+        ensure_camera() # This will also not be okay if the camera disconnects
+        return 'There are no widgets with the name of imagequality or the camera is disconnected', 500
+
+    # Set the capture target to 'Memory card'
+    OK = gp.gp_widget_set_value(capturetarget_widget, 'Memory card')
+    if OK != gp.GP_OK:
+        return 'Could not set the capture target to Memory card', 500
+
+    # Set the view finder to 0 (in case it it 1 from the capture preview)
+    OK = gp.gp_widget_set_value(viewfinder_widget, 0)
+    if OK != gp.GP_OK:
+        return 'Could not set the view finder to 0', 500
+
+    # Set the image format back to 'NEF (Raw)'
+    OK = gp.gp_widget_set_value(imagequality_widget, 'NEF (Raw)')
+    if OK != gp.GP_OK:
+        return 'Could not set the image quality to NEF (Raw)', 500
+
+    OK = gp.gp_camera_set_config(CAMERA, config)
+    if OK != gp.GP_OK:
+        return 'Could not update the camera configuration', 500
+
+    # Capture the image (to the memory card)
+    CAMERA.capture(gp.GP_CAPTURE_IMAGE)
+
+    return '', 301
+
 
 
 # Start the web server
 if __name__ == '__main__':
-    CAMERA = get_camera()
+    ensure_camera()
     app.run(host='0.0.0.0', port=PORT, threaded=False)
