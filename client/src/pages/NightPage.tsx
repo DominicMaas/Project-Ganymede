@@ -16,9 +16,11 @@ import {
   Button,
   Backdrop,
   CircularProgress,
+  Dialog,
+  IconButton,
 } from "@material-ui/core";
 import { Alert } from "@material-ui/lab";
-import download from "downloadjs";
+import CloseIcon from "@material-ui/icons/Close";
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -29,6 +31,18 @@ const useStyles = makeStyles((theme: Theme) =>
     backdrop: {
       zIndex: theme.zIndex.drawer + 1,
       color: "#fff",
+    },
+    appBar: {
+      display: "relative",
+    },
+    title: {
+      marginLeft: theme.spacing(2),
+      flex: 1,
+    },
+    img: {
+      display: "Block",
+      objectFit: "contain",
+      width: "100%",
     },
   })
 );
@@ -43,6 +57,8 @@ class KVPair {
   public choices: string[];
 }
 
+let loopCount: number = 0;
+
 function NightPage() {
   const classes = useStyles();
 
@@ -55,8 +71,15 @@ function NightPage() {
   const [shutterSpeed, setShutterSpeed] = React.useState(new KVPair("", [""]));
   const [fStop, setFStop] = React.useState(new KVPair("", [""]));
 
-  const [delay, setDelay] = React.useState("1");
+  const [delay, setDelay] = React.useState("5");
   const [takes, setTakes] = React.useState("10");
+
+  const [running, setRunning] = React.useState(false);
+
+  const [stopText, setStopText] = React.useState("Stop");
+
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [previewData, setPreviewData] = React.useState("");
 
   useEffect(() => {
     if (loading) return; // Prevent initial value being set
@@ -167,12 +190,95 @@ function NightPage() {
     });
   };
 
+  const captureImage = async () => {
+    if (running) {
+      loopCount = Number.MAX_VALUE; // This forces the counter to stop
+      setRunning(false);
+      return;
+    }
+
+    setRunning(true);
+
+    loopCount = 0;
+    const loopFunc = async () => {
+      // At the end
+      if (loopCount >= Number.parseInt(takes)) {
+        setRunning(false);
+        return;
+      }
+
+      setStopText(
+        "Stop (" + (loopCount + 1) + "/" + Number.parseInt(takes) + ")"
+      );
+
+      // Run the call
+      try {
+        await fetch("http://raspberrypi:8080/capture-image", {
+          method: "POST",
+        });
+        setLoading(false);
+      } catch (e) {
+        setError(e);
+        setLoading(false);
+      }
+
+      loopCount++;
+
+      setTimeout(loopFunc, 1000 * Number.parseFloat(delay));
+    };
+
+    // Call straight away
+    await loopFunc();
+  };
+
+  const capturePreview = () => {
+    // This may take some time
+    setLoading(true);
+
+    fetch("http://raspberrypi:8080/capture-preview")
+      .then((res) => res.blob())
+      .then((res) => {
+        setLoading(false);
+        setDialogOpen(true);
+        setPreviewData(URL.createObjectURL(res));
+      })
+      .catch((res) => {
+        setError(res);
+        setLoading(false);
+      });
+  };
+
+  const handleClose = () => {
+    setDialogOpen(false);
+  };
+
   // The UI
   return (
     <>
       <Backdrop className={classes.backdrop} open={loading}>
         <CircularProgress color="inherit" />
       </Backdrop>
+      <Dialog fullScreen open={dialogOpen} onClose={handleClose}>
+        <AppBar className={classes.appBar}>
+          <Toolbar>
+            <IconButton
+              edge="start"
+              color="inherit"
+              onClick={handleClose}
+              aria-label="close"
+            >
+              <CloseIcon />
+            </IconButton>
+            <Typography variant="h6" className={classes.title}>
+              Image Preview
+            </Typography>
+          </Toolbar>
+        </AppBar>
+        <br /> <br /> <br />
+        <br /> <br /> <br />
+        <img src={previewData} className={classes.img} alt="Preview Image" />
+      </Dialog>
+
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6">Night Photography</Typography>
@@ -257,7 +363,7 @@ function NightPage() {
             label="Delay (seconds)"
             id="select-delay"
             value={delay}
-            onChange={(v: any) => setDelay(v.target.value as string)}
+            onChange={(v) => setDelay(v.target.value as string)}
           />
           <FormHelperText>The delay in-between each photo</FormHelperText>
         </FormControl>
@@ -267,14 +373,20 @@ function NightPage() {
             label="Takes"
             id="select-takes"
             value={takes}
-            onChange={(v: any) => setTakes(v as string)}
+            onChange={(v) => setTakes(v.target.value as string)}
           />
           <FormHelperText>How many photos to take</FormHelperText>
         </FormControl>
 
         <FormControl className={classes.formControl}>
-          <Button variant="contained" color="primary">
-            Start
+          <Button variant="contained" color="primary" onClick={captureImage}>
+            {running ? stopText : "Start"}
+          </Button>
+        </FormControl>
+
+        <FormControl className={classes.formControl}>
+          <Button variant="outlined" color="primary" onClick={capturePreview}>
+            Capture Preview
           </Button>
         </FormControl>
 
@@ -287,6 +399,9 @@ function NightPage() {
           </FormHelperText>
         </FormControl>
       </Container>
+
+      <br />
+      <br />
     </>
   );
 }
