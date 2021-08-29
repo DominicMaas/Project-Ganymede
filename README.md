@@ -1,3 +1,5 @@
+# See https://github.com/DominicMaas/AstroHelper
+
 # Project-Ganymede
 A react client + node server that runs on a raspberry bi, allowing remote control of DLSR cameras from a mobile phone.
 
